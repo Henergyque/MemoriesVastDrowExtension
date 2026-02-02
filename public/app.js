@@ -337,7 +337,7 @@ joinBtn.addEventListener("click", () => {
   }
 
   if (maintenanceActive && !(pseudo.toLowerCase() === "admin" && maintenanceCode)) {
-    showToast("Maintenance en cours. Utilise pseudo admin + code 78913.");
+    showToast("Maintenance en cours.");
     return;
   }
 
