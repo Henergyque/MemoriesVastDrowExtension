@@ -1,0 +1,288 @@
+const path = require("path");
+const fs = require("fs");
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const { Pool } = require("pg");
+
+const SESSION_CODES = ["28473", "59016", "73142"];
+const SESSION_LIMIT = 100;
+const MAX_SERVER_SEGMENT = 1200;
+const MAINTENANCE_MODE = ["true", "1", "yes"].includes(
+  String(process.env.MAINTENANCE_MODE || "").toLowerCase()
+);
+const MAINTENANCE_CODE = String(process.env.MAINTENANCE_CODE || "78913").trim();
+const ADMIN_BYPASS_CODE = "78913";
+const MAINTENANCE_MESSAGE = String(
+  process.env.MAINTENANCE_MESSAGE || "Maintenance en cours. Merci de réessayer plus tard."
+).trim();
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+app.use(express.static(path.join(__dirname, "public")));
+
+const dataDir = path.join(__dirname, "data");
+const getSessionFile = (code) => path.join(dataDir, `strokes-${code}.json`);
+
+const dbEnabled = Boolean(process.env.DATABASE_URL);
+const pool = dbEnabled
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl:
+        process.env.PGSSLMODE === "require" || process.env.NODE_ENV === "production"
+          ? { rejectUnauthorized: false }
+          : undefined,
+    })
+  : null;
+
+const sessions = new Map();
+for (const code of SESSION_CODES) {
+  sessions.set(code, { users: new Map(), strokes: [] });
+}
+
+const ensureDataDir = () => {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+};
+
+const loadStrokes = () => {
+  for (const code of SESSION_CODES) {
+    try {
+      const filePath = getSessionFile(code);
+      if (!fs.existsSync(filePath)) continue;
+      const raw = fs.readFileSync(filePath, "utf-8");
+      const parsed = JSON.parse(raw);
+      const session = sessions.get(code);
+      if (session && Array.isArray(parsed)) {
+        session.strokes = parsed;
+      }
+    } catch (error) {
+      console.warn(`Failed to load strokes for ${code}:`, error.message);
+    }
+  }
+};
+
+const saveStrokes = (code) => {
+  try {
+    ensureDataDir();
+    const session = sessions.get(code);
+    const payload = session ? session.strokes : [];
+    fs.writeFileSync(getSessionFile(code), JSON.stringify(payload));
+  } catch (error) {
+    console.warn(`Failed to save strokes for ${code}:`, error.message);
+  }
+};
+
+const initDb = async () => {
+  if (!pool) return;
+  await pool.query(
+    "CREATE TABLE IF NOT EXISTS strokes (" +
+      "id BIGSERIAL PRIMARY KEY," +
+      "session_code VARCHAR(5) NOT NULL," +
+      "x1 DOUBLE PRECISION NOT NULL," +
+      "y1 DOUBLE PRECISION NOT NULL," +
+      "x2 DOUBLE PRECISION NOT NULL," +
+      "y2 DOUBLE PRECISION NOT NULL," +
+      "color TEXT NOT NULL," +
+      "size DOUBLE PRECISION NOT NULL," +
+      "opacity DOUBLE PRECISION NOT NULL," +
+      "created_at TIMESTAMPTZ DEFAULT NOW()" +
+      ");"
+  );
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS strokes_session_idx ON strokes (session_code);"
+  );
+};
+
+const loadStrokesFromDb = async () => {
+  if (!pool) return;
+  for (const code of SESSION_CODES) {
+    const session = sessions.get(code);
+    if (!session) continue;
+    const result = await pool.query(
+      "SELECT x1, y1, x2, y2, color, size, opacity FROM strokes WHERE session_code = $1 ORDER BY id ASC",
+      [code]
+    );
+    session.strokes = result.rows.map((row) => ({
+      x1: Number(row.x1),
+      y1: Number(row.y1),
+      x2: Number(row.x2),
+      y2: Number(row.y2),
+      color: row.color,
+      size: Number(row.size),
+      opacity: Number(row.opacity),
+    }));
+  }
+};
+
+const saveSegmentToDb = (code, segment) => {
+  if (!pool) return;
+  pool
+    .query(
+      "INSERT INTO strokes (session_code, x1, y1, x2, y2, color, size, opacity) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+      [
+        code,
+        segment.x1,
+        segment.y1,
+        segment.x2,
+        segment.y2,
+        segment.color,
+        segment.size,
+        segment.opacity,
+      ]
+    )
+    .catch((error) => {
+      console.warn(`Failed to save stroke for ${code}:`, error.message);
+    });
+};
+
+const start = async () => {
+  if (dbEnabled) {
+    await initDb();
+    await loadStrokesFromDb();
+  } else {
+    ensureDataDir();
+    loadStrokes();
+    setInterval(() => {
+      SESSION_CODES.forEach((code) => saveStrokes(code));
+    }, 3 * 60 * 1000);
+  }
+
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+};
+
+const getSession = (code) => sessions.get(code);
+
+io.on("connection", (socket) => {
+  socket.emit("maintenance_status", {
+    enabled: MAINTENANCE_MODE,
+    message: MAINTENANCE_MESSAGE,
+  });
+
+  socket.on("join", (payload) => {
+    const rawCode = String(payload?.code || "").trim();
+    const pseudo = String(payload?.pseudo || "").trim();
+    const maintenanceCode = String(payload?.maintenanceCode || rawCode).trim();
+    const isAdminBypass =
+      pseudo.toLowerCase() === "admin" &&
+      (maintenanceCode === MAINTENANCE_CODE || maintenanceCode === ADMIN_BYPASS_CODE);
+    const code = isAdminBypass ? SESSION_CODES[0] : rawCode;
+
+    if (MAINTENANCE_MODE && !isAdminBypass) {
+      socket.emit("join_error", MAINTENANCE_MESSAGE);
+      return;
+    }
+
+    if (!SESSION_CODES.includes(code)) {
+      socket.emit("join_error", "Code de session invalide.");
+      return;
+    }
+
+    if (!pseudo) {
+      socket.emit("join_error", "Pseudo obligatoire.");
+      return;
+    }
+
+    const session = getSession(code);
+    if (!session) {
+      socket.emit("join_error", "Session indisponible.");
+      return;
+    }
+
+    if (session.users.size >= SESSION_LIMIT) {
+      socket.emit("join_error", "Session pleine (100 utilisateurs).");
+      return;
+    }
+
+    socket.data.code = code;
+    socket.data.pseudo = pseudo;
+    socket.data.bypass = !MAINTENANCE_MODE || isAdminBypass;
+
+    session.users.set(socket.id, pseudo);
+    socket.join(code);
+
+    socket.emit("init", {
+      code,
+      limit: SESSION_LIMIT,
+      users: Array.from(session.users.values()),
+      count: session.users.size,
+      strokes: session.strokes,
+    });
+
+    io.to(code).emit("user_list", {
+      users: Array.from(session.users.values()),
+      count: session.users.size,
+      limit: SESSION_LIMIT,
+    });
+  });
+
+  socket.on("draw", (segment) => {
+    const code = socket.data.code;
+    if (!code) return;
+    const session = getSession(code);
+    if (!session) return;
+
+    if (MAINTENANCE_MODE && !socket.data.bypass) return;
+
+    const safeSegment = {
+      x1: Number(segment?.x1),
+      y1: Number(segment?.y1),
+      x2: Number(segment?.x2),
+      y2: Number(segment?.y2),
+      color: String(segment?.color || "#000000"),
+      size: Number(segment?.size || 6),
+      opacity: Number(segment?.opacity || 1),
+    };
+
+    if ([
+      safeSegment.x1,
+      safeSegment.y1,
+      safeSegment.x2,
+      safeSegment.y2,
+      safeSegment.size,
+      safeSegment.opacity,
+    ].some((v) => Number.isNaN(v))) {
+      return;
+    }
+
+    const dx = safeSegment.x2 - safeSegment.x1;
+    const dy = safeSegment.y2 - safeSegment.y1;
+    if (Math.hypot(dx, dy) > MAX_SERVER_SEGMENT) {
+      return;
+    }
+
+    session.strokes.push(safeSegment);
+    if (dbEnabled) {
+      saveSegmentToDb(code, safeSegment);
+    } else {
+      saveStrokes(code);
+    }
+    socket.to(code).emit("draw", safeSegment);
+  });
+
+  socket.on("disconnect", () => {
+    const code = socket.data.code;
+    if (!code) return;
+    const session = getSession(code);
+    if (!session) return;
+
+    session.users.delete(socket.id);
+
+    io.to(code).emit("user_list", {
+      users: Array.from(session.users.values()),
+      count: session.users.size,
+      limit: SESSION_LIMIT,
+    });
+  });
+});
+
+start().catch((error) => {
+  console.error("Failed to start server:", error.message);
+  process.exit(1);
+});

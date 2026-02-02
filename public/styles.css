@@ -1,0 +1,307 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #ffffff;
+  color: #0b0b0b;
+}
+
+#board {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: #ffffff;
+  cursor: crosshair;
+}
+
+.site-brand {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(6px);
+  z-index: 6;
+}
+
+.logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #000000;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+}
+
+.logo-text {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #000000;
+}
+
+.entry {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+  z-index: 10;
+}
+
+.entry.hidden {
+  display: none;
+}
+
+.entry-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 28px;
+  min-width: 320px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  display: grid;
+  gap: 14px;
+}
+
+.brand {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #000000;
+}
+
+.entry-card h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.connection-status {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.entry-card label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.entry-card input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+}
+
+
+.entry-card button {
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #0b0b0b;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.panel {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  width: 320px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+
+.panel-right {
+  left: auto;
+  right: 16px;
+  bottom: 16px;
+}
+
+.panel.collapsed {
+  width: 52px;
+  height: 52px;
+  padding: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+.panel.collapsed .panel-body,
+.panel.collapsed .panel-title,
+.panel.collapsed #help-btn {
+  display: none;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.panel-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.panel-btn {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+  color: #000000;
+}
+
+.panel-body {
+  display: grid;
+  gap: 16px;
+  overflow: auto;
+}
+
+.panel-section {
+  display: grid;
+  gap: 8px;
+}
+
+.panel-meta {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.user-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.control {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.control input[type="range"] {
+  width: 100%;
+}
+
+.panel-handle {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  color: #000000;
+  opacity: 0.6;
+  z-index: 8;
+  display: none;
+}
+
+.panel-handle:hover {
+  opacity: 1;
+}
+
+.panel-handle-right {
+  left: auto;
+  right: 16px;
+  bottom: 16px;
+}
+
+.panel-handle.visible {
+  display: flex;
+}
+
+.tutorial {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.75);
+  z-index: 15;
+}
+
+.tutorial.hidden {
+  display: none;
+}
+
+.tutorial-card {
+  background: #ffffff;
+  padding: 20px 24px;
+  border-radius: 16px;
+  width: min(380px, 90vw);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+}
+
+.tutorial-card h2 {
+  margin-top: 0;
+}
+
+.tutorial-card button {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: #0b0b0b;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.toasts {
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  display: grid;
+  gap: 8px;
+  z-index: 20;
+}
+
+.toast {
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  min-width: 200px;
+}

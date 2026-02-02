@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VastDrow</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="site-brand">
+      <div class="logo-mark">VD</div>
+      <div class="logo-text">VastDrow</div>
+    </div>
+
+    <div id="entry" class="entry">
+      <div class="entry-card">
+        <div class="brand">VastDrow</div>
+        <h1>Whiteboard infini</h1>
+        <p>Entre un pseudo et un code de session à 5 chiffres.</p>
+        <div id="connection-status" class="connection-status">Serveur: connexion...</div>
+        <label>
+          Pseudo
+          <input id="pseudo-input" type="text" maxlength="24" autocomplete="username" />
+        </label>
+        <label>
+          Code de session
+          <input id="code-input" type="text" inputmode="numeric" maxlength="5" autocomplete="one-time-code" />
+        </label>
+        <button id="join-btn">Rejoindre</button>
+      </div>
+    </div>
+
+    <canvas id="board"></canvas>
+
+    <div id="panel" class="panel">
+      <div class="panel-header">
+        <button id="panel-toggle" class="panel-btn" aria-label="Masquer le panneau">◀</button>
+        <span class="panel-title">Session</span>
+        <button id="help-btn" class="panel-btn" aria-label="Tutoriel">?</button>
+      </div>
+      <div class="panel-body">
+        <div class="panel-section">
+          <div id="session-code" class="panel-meta">Code: —</div>
+        </div>
+        <div class="panel-section">
+          <label class="control">
+            Couleur
+            <input id="color-picker" type="color" value="#000000" />
+          </label>
+          <label class="control">
+            Taille
+            <input id="size-range" type="range" min="1" max="40" value="6" />
+          </label>
+          <label class="control">
+            Opacité
+            <input id="opacity-range" type="range" min="0.1" max="1" step="0.05" value="1" />
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-handle" class="panel-handle" aria-label="Afficher le panneau">▶</div>
+
+    <div id="users-panel" class="panel panel-right">
+      <div class="panel-header">
+        <button id="users-toggle" class="panel-btn" aria-label="Masquer les utilisateurs">▶</button>
+        <span class="panel-title">Connectés</span>
+      </div>
+      <div class="panel-body">
+        <div class="panel-section">
+          <div id="user-count" class="panel-meta">0/100</div>
+          <ul id="user-list" class="user-list"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="users-handle" class="panel-handle panel-handle-right" aria-label="Afficher les utilisateurs">◀</div>
+
+    <div id="tutorial" class="tutorial hidden">
+      <div class="tutorial-card">
+        <h2>Tutoriel</h2>
+        <ul>
+          <li>Dessiner: clic gauche et glisser.</li>
+          <li>Pan: clic droit, bouton du milieu, ou espace + clic gauche.</li>
+          <li>Zoom: molette (zoom au curseur).</li>
+          <li>Palette: choisis couleur, taille et opacité.</li>
+        </ul>
+        <button id="tutorial-close">Fermer</button>
+      </div>
+    </div>
+
+    <div id="toasts" class="toasts"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
