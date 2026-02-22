@@ -89,7 +89,7 @@ const initDb = async () => {
   await pool.query(
     "CREATE TABLE IF NOT EXISTS strokes (" +
       "id BIGSERIAL PRIMARY KEY," +
-      "session_code VARCHAR(5) NOT NULL," +
+      "session_code VARCHAR(10) NOT NULL," +
       "x1 DOUBLE PRECISION NOT NULL," +
       "y1 DOUBLE PRECISION NOT NULL," +
       "x2 DOUBLE PRECISION NOT NULL," +
@@ -100,6 +100,10 @@ const initDb = async () => {
       "created_at TIMESTAMPTZ DEFAULT NOW()" +
       ");"
   );
+  // Agrandir la colonne si elle existait déjà en VARCHAR(5)
+  await pool.query(
+    "ALTER TABLE strokes ALTER COLUMN session_code TYPE VARCHAR(10);"
+  ).catch(() => {});
   await pool.query(
     "CREATE INDEX IF NOT EXISTS strokes_session_idx ON strokes (session_code);"
   );
