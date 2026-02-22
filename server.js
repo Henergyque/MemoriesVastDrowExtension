@@ -363,14 +363,14 @@ io.on("connection", (socket) => {
       url: `/api/latest-drawing/${code}`,
     });
 
-    // Déclencher le webhook Pushcut pour l'autre utilisateur
-    const pos = socket.data.position;
-    const webhookUrl = pos === 1 ? PUSHCUT_WEBHOOK_B : PUSHCUT_WEBHOOK_A;
-    triggerWebhook(webhookUrl, {
+    // Déclencher les webhooks Pushcut pour les deux utilisateurs
+    const payload = {
       title: "Nouveau dessin !",
       text: `${socket.data.pseudo} t'a envoyé un dessin`,
       input: `${process.env.PUBLIC_URL || ""}/api/latest-drawing/${code}`,
-    });
+    };
+    if (PUSHCUT_WEBHOOK_A) triggerWebhook(PUSHCUT_WEBHOOK_A, payload);
+    if (PUSHCUT_WEBHOOK_B) triggerWebhook(PUSHCUT_WEBHOOK_B, payload);
 
     socket.emit("drawing_sent", { ok: true });
   });
