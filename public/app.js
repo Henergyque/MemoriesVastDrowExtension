@@ -338,9 +338,57 @@ const handleWheel = (e) => {
   requestRedraw();
 };
 
-/* ── Capture canvas → image (pour envoi) ───────────────── */
+/* ── Capture canvas → image format fond d'écran iPhone ──── */
+const WALLPAPER_W = 1170;
+const WALLPAPER_H = 2532;
+
 const captureCanvas = () => {
-  return canvas.toDataURL("image/png");
+  // Créer un canvas hors-écran aux dimensions fond d'écran iPhone
+  const offscreen = document.createElement("canvas");
+  offscreen.width = WALLPAPER_W;
+  offscreen.height = WALLPAPER_H;
+  const offCtx = offscreen.getContext("2d");
+
+  // Fond blanc
+  offCtx.fillStyle = "#ffffff";
+  offCtx.fillRect(0, 0, WALLPAPER_W, WALLPAPER_H);
+
+  // Calculer la zone visible du canvas actuel en coordonnées monde
+  const topLeft = screenToWorld(0, 0);
+  const bottomRight = screenToWorld(width, height);
+  const viewW = bottomRight.x - topLeft.x;
+  const viewH = bottomRight.y - topLeft.y;
+
+  // Scale pour remplir le format portrait (cover)
+  const scaleX = WALLPAPER_W / viewW;
+  const scaleY = WALLPAPER_H / viewH;
+  const fitScale = Math.max(scaleX, scaleY); // cover
+
+  // Centrer le dessin
+  const drawW = viewW * fitScale;
+  const drawH = viewH * fitScale;
+  const ox = (WALLPAPER_W - drawW) / 2;
+  const oy = (WALLPAPER_H - drawH) / 2;
+
+  // Dessiner tous les traits
+  strokes.forEach((seg) => {
+    offCtx.save();
+    offCtx.translate(ox, oy);
+    offCtx.scale(fitScale, fitScale);
+    offCtx.translate(-topLeft.x, -topLeft.y);
+    offCtx.strokeStyle = seg.color;
+    offCtx.globalAlpha = seg.opacity;
+    offCtx.lineWidth = seg.size / scale;
+    offCtx.lineCap = "round";
+    offCtx.lineJoin = "round";
+    offCtx.beginPath();
+    offCtx.moveTo(seg.x1, seg.y1);
+    offCtx.lineTo(seg.x2, seg.y2);
+    offCtx.stroke();
+    offCtx.restore();
+  });
+
+  return offscreen.toDataURL("image/png");
 };
 
 /* ── Envoi du dessin ───────────────────────────────────── */
@@ -381,6 +429,35 @@ const showReceivedDrawing = (data) => {
 const clearCanvasLocal = () => {
   if (!confirm("Effacer tout le tableau ? (pour les 2)")) return;
   socket.emit("clear_canvas");
+};
+
+/* ── Bannière de permission notifications ──────────────── */
+const showNotifBanner = () => {
+  const banner = document.createElement("div");
+  banner.className = "notif-banner";
+  banner.innerHTML = `
+    <p>Activer les notifications pour recevoir les dessins ?</p>
+    <div class="notif-banner-btns">
+      <button id="notif-yes" class="notif-btn notif-btn-yes">Oui !</button>
+      <button id="notif-no" class="notif-btn">Plus tard</button>
+    </div>
+  `;
+  document.body.appendChild(banner);
+
+  banner.querySelector("#notif-yes").addEventListener("click", () => {
+    Notification.requestPermission().then((perm) => {
+      if (perm === "granted") {
+        showToast("Notifications activées !");
+      } else {
+        showToast("Notifications refusées.");
+      }
+    });
+    banner.remove();
+  });
+
+  banner.querySelector("#notif-no").addEventListener("click", () => {
+    banner.remove();
+  });
 };
 
 /* ── Événements UI ─────────────────────────────────────── */
@@ -451,9 +528,9 @@ socket.on("init", (payload) => {
   setUserList(payload.users || [], payload.count || 0, payload.limit || 2);
   requestRedraw();
 
-  // Demander la permission pour les notifications
+  // Montrer la bannière de demande de notifications
   if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
+    showNotifBanner();
   }
 
   // Montrer le tutorial au premier lancement

@@ -505,6 +505,58 @@ body {
   to { opacity: 0; }
 }
 
+/* ── Bannière notifications ────────────────────────────── */
+.notif-banner {
+  position: fixed;
+  bottom: max(80px, calc(env(safe-area-inset-bottom) + 70px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(340px, 90vw);
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  z-index: 25;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.notif-banner p {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.notif-banner-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.notif-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.06);
+  color: #0b0b0b;
+  transition: transform 0.1s;
+}
+
+.notif-btn:active {
+  transform: scale(0.96);
+}
+
+.notif-btn-yes {
+  background: #0b0b0b;
+  color: #fff;
+}
+
 /* ── Responsive (petits écrans) ────────────────────────── */
 @media (max-width: 480px) {
   .site-brand {
