@@ -135,9 +135,37 @@ const drawSegment = (seg) => {
   ctx.globalAlpha = 1;
 };
 
+/* ── Cadre fond d'écran iPhone (zone de capture) ───── */
+const FRAME_RATIO = 2532 / 1170; // ~2.164 ratio iPhone
+const FRAME_HALF_W = 400; // demi-largeur en coordonnées monde
+const FRAME_HALF_H = FRAME_HALF_W * FRAME_RATIO;
+
+const drawFrame = () => {
+  applyTransform();
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
+  ctx.lineWidth = 2 / scale;
+  ctx.setLineDash([10 / scale, 6 / scale]);
+  ctx.beginPath();
+  ctx.roundRect(
+    -FRAME_HALF_W, -FRAME_HALF_H,
+    FRAME_HALF_W * 2, FRAME_HALF_H * 2,
+    30 / scale
+  );
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Petit label en haut du cadre
+  ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+  ctx.font = `${14 / scale}px -apple-system, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("📱 Zone fond d'écran", 0, -FRAME_HALF_H + 20 / scale);
+  ctx.textAlign = "start";
+};
+
 const redrawAll = () => {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, width, height);
+  drawFrame();
   strokes.forEach(drawSegment);
   needsRedraw = false;
 };
@@ -343,7 +371,6 @@ const WALLPAPER_W = 1170;
 const WALLPAPER_H = 2532;
 
 const captureCanvas = () => {
-  // Créer un canvas hors-écran aux dimensions fond d'écran iPhone
   const offscreen = document.createElement("canvas");
   offscreen.width = WALLPAPER_W;
   offscreen.height = WALLPAPER_H;
@@ -353,29 +380,16 @@ const captureCanvas = () => {
   offCtx.fillStyle = "#ffffff";
   offCtx.fillRect(0, 0, WALLPAPER_W, WALLPAPER_H);
 
-  // Calculer la zone visible du canvas actuel en coordonnées monde
-  const topLeft = screenToWorld(0, 0);
-  const bottomRight = screenToWorld(width, height);
-  const viewW = bottomRight.x - topLeft.x;
-  const viewH = bottomRight.y - topLeft.y;
+  // Mapper le cadre (zone -FRAME_HALF_W..+FRAME_HALF_W, -FRAME_HALF_H..+FRAME_HALF_H)
+  // vers le canvas 1170x2532
+  const scaleX = WALLPAPER_W / (FRAME_HALF_W * 2);
+  const scaleY = WALLPAPER_H / (FRAME_HALF_H * 2);
+  const fitScale = Math.min(scaleX, scaleY);
 
-  // Scale pour remplir le format portrait (cover)
-  const scaleX = WALLPAPER_W / viewW;
-  const scaleY = WALLPAPER_H / viewH;
-  const fitScale = Math.max(scaleX, scaleY); // cover
-
-  // Centrer le dessin
-  const drawW = viewW * fitScale;
-  const drawH = viewH * fitScale;
-  const ox = (WALLPAPER_W - drawW) / 2;
-  const oy = (WALLPAPER_H - drawH) / 2;
-
-  // Dessiner tous les traits
   strokes.forEach((seg) => {
     offCtx.save();
-    offCtx.translate(ox, oy);
+    offCtx.translate(WALLPAPER_W / 2, WALLPAPER_H / 2);
     offCtx.scale(fitScale, fitScale);
-    offCtx.translate(-topLeft.x, -topLeft.y);
     offCtx.strokeStyle = seg.color;
     offCtx.globalAlpha = seg.opacity;
     offCtx.lineWidth = seg.size / scale;
@@ -433,27 +447,42 @@ const clearCanvasLocal = () => {
 
 /* ── Bannière de permission notifications ──────────────── */
 const showNotifBanner = () => {
+  // Ne pas afficher 2 fois par session
+  if (document.querySelector(".notif-banner")) return;
+
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const banner = document.createElement("div");
   banner.className = "notif-banner";
-  banner.innerHTML = `
-    <p>Activer les notifications pour recevoir les dessins ?</p>
-    <div class="notif-banner-btns">
-      <button id="notif-yes" class="notif-btn notif-btn-yes">Oui !</button>
-      <button id="notif-no" class="notif-btn">Plus tard</button>
-    </div>
-  `;
+
+  if (isIOS) {
+    banner.innerHTML = `
+      <p>🔔 Pour recevoir les dessins en fond d'écran :</p>
+      <p style="font-size:13px;color:rgba(0,0,0,0.6);margin:0">Installe <b>Pushcut</b> depuis l'App Store puis configure le raccourci iOS (voir README)</p>
+      <div class="notif-banner-btns">
+        <button id="notif-no" class="notif-btn notif-btn-yes">Compris !</button>
+      </div>
+    `;
+  } else {
+    banner.innerHTML = `
+      <p>🔔 Activer les notifications pour recevoir les dessins ?</p>
+      <div class="notif-banner-btns">
+        <button id="notif-yes" class="notif-btn notif-btn-yes">Oui !</button>
+        <button id="notif-no" class="notif-btn">Plus tard</button>
+      </div>
+    `;
+  }
+
   document.body.appendChild(banner);
 
-  banner.querySelector("#notif-yes").addEventListener("click", () => {
-    Notification.requestPermission().then((perm) => {
-      if (perm === "granted") {
-        showToast("Notifications activées !");
-      } else {
-        showToast("Notifications refusées.");
-      }
+  const yesBtn = banner.querySelector("#notif-yes");
+  if (yesBtn) {
+    yesBtn.addEventListener("click", () => {
+      Notification.requestPermission().then((perm) => {
+        showToast(perm === "granted" ? "Notifications activées !" : "Notifications refusées.");
+      });
+      banner.remove();
     });
-    banner.remove();
-  });
+  }
 
   banner.querySelector("#notif-no").addEventListener("click", () => {
     banner.remove();
@@ -528,8 +557,13 @@ socket.on("init", (payload) => {
   setUserList(payload.users || [], payload.count || 0, payload.limit || 2);
   requestRedraw();
 
-  // Montrer la bannière de demande de notifications
-  if ("Notification" in window && Notification.permission === "default") {
+  // Montrer la bannière de demande de notifications (toujours sur mobile)
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    // iOS ne supporte pas les Web Notifications en PWA
+    // On montre quand même la bannière pour expliquer Pushcut
+    showNotifBanner();
+  } else if ("Notification" in window && Notification.permission === "default") {
     showNotifBanner();
   }
 
