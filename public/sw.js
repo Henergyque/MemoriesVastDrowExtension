@@ -2,7 +2,7 @@
    Cache l'app shell pour fonctionnement PWA (ajout écran d'accueil iOS).
 ───────────────────────────────────────────────────────────── */
 
-const CACHE_NAME = "memories-v1";
+const CACHE_NAME = "memories-v3";
 const ASSETS = [
   "/",
   "/index.html",
