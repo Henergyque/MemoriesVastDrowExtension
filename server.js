@@ -2,11 +2,12 @@ const path = require("path");
 const fs = require("fs");
 const express = require("express");
 const http = require("http");
+const https = require("https");
 const { Server } = require("socket.io");
 const { Pool } = require("pg");
 
-const SESSION_CODES = ["28473", "59016", "73142"];
-const SESSION_LIMIT = 100;
+const SESSION_CODES = ["28473", "59016", "73142", "240125"];
+const SESSION_LIMIT = 2;
 const MAX_SERVER_SEGMENT = 1200;
 const MAINTENANCE_MODE = ["true", "1", "yes"].includes(
   String(process.env.MAINTENANCE_MODE || "").toLowerCase()
@@ -17,10 +18,17 @@ const MAINTENANCE_MESSAGE = String(
   process.env.MAINTENANCE_MESSAGE || "Maintenance en cours. Merci de réessayer plus tard."
 ).trim();
 
+// Webhooks Pushcut pour notifications iOS (déclenchent les Raccourcis iOS)
+const PUSHCUT_WEBHOOK_A = (process.env.PUSHCUT_WEBHOOK_A || "").trim();
+const PUSHCUT_WEBHOOK_B = (process.env.PUSHCUT_WEBHOOK_B || "").trim();
+
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  maxHttpBufferSize: 5 * 1024 * 1024, // 5 MB pour les images
+});
 
+app.use(express.json({ limit: "10mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const dataDir = path.join(__dirname, "data");
@@ -139,6 +147,68 @@ const saveSegmentToDb = (code, segment) => {
     });
 };
 
+/* ── Gestion des dessins envoyés ───────────────────────── */
+const drawingsDir = path.join(__dirname, "data", "drawings");
+
+const ensureDrawingsDir = () => {
+  if (!fs.existsSync(drawingsDir)) {
+    fs.mkdirSync(drawingsDir, { recursive: true });
+  }
+};
+
+const saveDrawingImage = (code, base64Data) => {
+  ensureDrawingsDir();
+  // Retirer le préfixe data URL si présent
+  const raw = base64Data.replace(/^data:image\/\w+;base64,/, "");
+  const buffer = Buffer.from(raw, "base64");
+  const filePath = path.join(drawingsDir, `latest-${code}.png`);
+  fs.writeFileSync(filePath, buffer);
+  return filePath;
+};
+
+/* ── Webhook Pushcut / iOS Shortcuts ───────────────────── */
+const triggerWebhook = (url, payload) => {
+  if (!url) return;
+  try {
+    const urlObj = new URL(url);
+    const body = JSON.stringify(payload);
+    const mod = urlObj.protocol === "https:" ? https : http;
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (urlObj.protocol === "https:" ? 443 : 80),
+      path: urlObj.pathname + urlObj.search,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body),
+      },
+    };
+    const req = mod.request(options, (res) => {
+      console.log(`Webhook ${urlObj.hostname} → ${res.statusCode}`);
+    });
+    req.on("error", (err) => console.warn("Webhook error:", err.message));
+    req.write(body);
+    req.end();
+  } catch (err) {
+    console.warn("Webhook trigger failed:", err.message);
+  }
+};
+
+/* ── API REST pour les dessins ─────────────────────────── */
+app.get("/api/latest-drawing/:code", (req, res) => {
+  const code = req.params.code;
+  if (!SESSION_CODES.includes(code)) {
+    return res.status(404).json({ error: "Session inconnue." });
+  }
+  const filePath = path.join(drawingsDir, `latest-${code}.png`);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: "Aucun dessin enregistré." });
+  }
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Cache-Control", "no-cache");
+  res.sendFile(filePath);
+});
+
 const start = async () => {
   if (dbEnabled) {
     await initDb();
@@ -196,13 +266,14 @@ io.on("connection", (socket) => {
     }
 
     if (session.users.size >= SESSION_LIMIT) {
-      socket.emit("join_error", "Session pleine (100 utilisateurs).");
+      socket.emit("join_error", "Session pleine (2 personnes max).");
       return;
     }
 
     socket.data.code = code;
     socket.data.pseudo = pseudo;
     socket.data.bypass = !MAINTENANCE_MODE || isAdminBypass;
+    socket.data.position = session.users.size + 1; // 1 ou 2
 
     session.users.set(socket.id, pseudo);
     socket.join(code);
@@ -264,6 +335,54 @@ io.on("connection", (socket) => {
       saveStrokes(code);
     }
     socket.to(code).emit("draw", safeSegment);
+  });
+
+  socket.on("send_drawing", (payload) => {
+    const code = socket.data.code;
+    if (!code) return;
+    const session = getSession(code);
+    if (!session) return;
+
+    const base64 = payload?.image;
+    if (!base64 || typeof base64 !== "string") return;
+
+    try {
+      saveDrawingImage(code, base64);
+    } catch (err) {
+      console.warn("Failed to save drawing image:", err.message);
+    }
+
+    // Notifier l'autre utilisateur via socket
+    socket.to(code).emit("receive_drawing", {
+      image: base64,
+      from: socket.data.pseudo,
+      url: `/api/latest-drawing/${code}`,
+    });
+
+    // Déclencher le webhook Pushcut pour l'autre utilisateur
+    const pos = socket.data.position;
+    const webhookUrl = pos === 1 ? PUSHCUT_WEBHOOK_B : PUSHCUT_WEBHOOK_A;
+    triggerWebhook(webhookUrl, {
+      title: "Nouveau dessin !",
+      text: `${socket.data.pseudo} t'a envoyé un dessin`,
+      input: `${process.env.PUBLIC_URL || ""}/api/latest-drawing/${code}`,
+    });
+
+    socket.emit("drawing_sent", { ok: true });
+  });
+
+  socket.on("clear_canvas", () => {
+    const code = socket.data.code;
+    if (!code) return;
+    const session = getSession(code);
+    if (!session) return;
+    session.strokes = [];
+    if (dbEnabled) {
+      pool.query("DELETE FROM strokes WHERE session_code = $1", [code]).catch(() => {});
+    } else {
+      saveStrokes(code);
+    }
+    io.to(code).emit("canvas_cleared");
   });
 
   socket.on("disconnect", () => {

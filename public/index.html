@@ -2,21 +2,27 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VastDrow</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Memories" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>" />
+    <title>Memories</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="site-brand">
-      <div class="logo-mark">VD</div>
-      <div class="logo-text">VastDrow</div>
+      <div class="logo-mark">M</div>
+      <div class="logo-text">Memories</div>
     </div>
 
     <div id="entry" class="entry">
       <div class="entry-card">
-        <div class="brand">VastDrow</div>
-        <h1>Whiteboard infini</h1>
-        <p>Entre un pseudo et un code de session à 5 chiffres.</p>
+        <div class="brand">Memories</div>
+        <h1>Notre tableau</h1>
+        <p>Entre ton pseudo et le code secret.</p>
         <div id="connection-status" class="connection-status">Serveur: connexion...</div>
         <label>
           Pseudo
@@ -24,7 +30,7 @@
         </label>
         <label>
           Code de session
-          <input id="code-input" type="text" inputmode="numeric" maxlength="5" autocomplete="one-time-code" />
+          <input id="code-input" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
         </label>
         <button id="join-btn">Rejoindre</button>
       </div>
@@ -32,60 +38,55 @@
 
     <canvas id="board"></canvas>
 
-    <div id="panel" class="panel">
-      <div class="panel-header">
-        <button id="panel-toggle" class="panel-btn" aria-label="Masquer le panneau">◀</button>
-        <span class="panel-title">Session</span>
-        <button id="help-btn" class="panel-btn" aria-label="Tutoriel">?</button>
+    <!-- Barre d'outils mobile en bas -->
+    <div id="toolbar" class="toolbar hidden">
+      <input id="color-picker" type="color" value="#000000" class="toolbar-color" title="Couleur" />
+      <div class="toolbar-group">
+        <label class="toolbar-label">
+          <span class="toolbar-icon">✏️</span>
+          <input id="size-range" type="range" min="1" max="40" value="6" />
+        </label>
       </div>
-      <div class="panel-body">
-        <div class="panel-section">
-          <div id="session-code" class="panel-meta">Code: —</div>
-        </div>
-        <div class="panel-section">
-          <label class="control">
-            Couleur
-            <input id="color-picker" type="color" value="#000000" />
-          </label>
-          <label class="control">
-            Taille
-            <input id="size-range" type="range" min="1" max="40" value="6" />
-          </label>
-          <label class="control">
-            Opacité
-            <input id="opacity-range" type="range" min="0.1" max="1" step="0.05" value="1" />
-          </label>
+      <div class="toolbar-group">
+        <label class="toolbar-label">
+          <span class="toolbar-icon">💧</span>
+          <input id="opacity-range" type="range" min="0.1" max="1" step="0.05" value="1" />
+        </label>
+      </div>
+      <button id="clear-btn" class="toolbar-btn" title="Effacer tout">🗑️</button>
+      <button id="send-btn" class="toolbar-btn send-btn" title="Envoyer le dessin">📩</button>
+    </div>
+
+    <!-- Panel utilisateurs (compact) -->
+    <div id="users-badge" class="users-badge hidden">
+      <span id="user-count">0/2</span>
+      <ul id="user-list" class="user-list-mini"></ul>
+    </div>
+
+    <!-- Modal dessin reçu -->
+    <div id="received-modal" class="received-modal hidden">
+      <div class="received-card">
+        <p id="received-from" class="received-from"></p>
+        <img id="received-image" class="received-image" alt="Dessin reçu" />
+        <div class="received-actions">
+          <a id="received-download" class="received-btn" download="dessin.png">Télécharger</a>
+          <button id="received-close" class="received-btn received-btn-close">Fermer</button>
         </div>
       </div>
     </div>
 
-    <div id="panel-handle" class="panel-handle" aria-label="Afficher le panneau">▶</div>
-
-    <div id="users-panel" class="panel panel-right">
-      <div class="panel-header">
-        <button id="users-toggle" class="panel-btn" aria-label="Masquer les utilisateurs">▶</button>
-        <span class="panel-title">Connectés</span>
-      </div>
-      <div class="panel-body">
-        <div class="panel-section">
-          <div id="user-count" class="panel-meta">0/100</div>
-          <ul id="user-list" class="user-list"></ul>
-        </div>
-      </div>
-    </div>
-
-    <div id="users-handle" class="panel-handle panel-handle-right" aria-label="Afficher les utilisateurs">◀</div>
-
+    <!-- Tutorial -->
     <div id="tutorial" class="tutorial hidden">
       <div class="tutorial-card">
-        <h2>Tutoriel</h2>
+        <h2>Comment ça marche</h2>
         <ul>
-          <li>Dessiner: clic gauche et glisser.</li>
-          <li>Pan: clic droit, bouton du milieu, ou espace + clic gauche.</li>
-          <li>Zoom: molette (zoom au curseur).</li>
-          <li>Palette: choisis couleur, taille et opacité.</li>
+          <li><strong>Dessiner :</strong> glisser avec un doigt (ou clic gauche).</li>
+          <li><strong>Déplacer :</strong> glisser avec 2 doigts (ou clic droit).</li>
+          <li><strong>Zoomer :</strong> pincer avec 2 doigts (ou molette).</li>
+          <li><strong>Envoyer :</strong> tape 📩 pour envoyer le dessin.</li>
+          <li><strong>Effacer :</strong> tape 🗑️ pour tout effacer.</li>
         </ul>
-        <button id="tutorial-close">Fermer</button>
+        <button id="tutorial-close">Compris !</button>
       </div>
     </div>
 
