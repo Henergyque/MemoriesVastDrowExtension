@@ -1,0 +1,24 @@
+{
+  "240125": {
+    "relationshipDate": "2025-10-31",
+    "postits": [
+      {
+        "text": "test",
+        "author": "Henergyque",
+        "id": 1771807862511
+      }
+    ],
+    "words": {
+      "Henergyque": {
+        "text": "je t'aime",
+        "date": "2026-02-23"
+      }
+    },
+    "moods": {
+      "Henergyque": {
+        "mood": "sunny",
+        "date": "2026-02-23"
+      }
+    }
+  }
+}

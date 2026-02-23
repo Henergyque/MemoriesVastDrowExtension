@@ -11,6 +11,7 @@
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>" />
     <title>Memories</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
   <body>
     <div class="site-brand">
@@ -63,6 +64,249 @@
       <ul id="user-list" class="user-list-mini"></ul>
     </div>
 
+    <!-- Menu features (bouton) -->
+    <button id="menu-btn" class="menu-btn hidden" title="Fonctionnalités">💕</button>
+
+    <!-- Heartbeat presence indicator -->
+    <div id="heartbeat-widget" class="heartbeat-widget hidden">
+      <span id="heartbeat-icon" class="heartbeat-icon">🤍</span>
+      <span id="heartbeat-label" class="heartbeat-label">Hors ligne</span>
+    </div>
+
+    <!-- Panel features (sidebar) -->
+    <div id="features-panel" class="features-panel hidden">
+      <div class="features-header">
+        <h2>Memories</h2>
+        <button id="features-close" class="features-close">&times;</button>
+      </div>
+      <div class="features-scroll">
+
+        <!-- ⏱️ Compteur relation -->
+        <div class="feature-card counter-card">
+          <div class="counter-heart-anim">💕</div>
+          <div id="counter-display" class="counter-display">
+            <span class="counter-big" id="counter-days">—</span>
+            <span class="counter-label">jours ensemble</span>
+          </div>
+          <div id="counter-detail" class="counter-detail"></div>
+          <button id="counter-edit-btn" class="feature-action-btn">📅 Définir la date</button>
+        </div>
+
+        <!-- 💗 Présence en temps réel -->
+        <div class="feature-card presence-card">
+          <div id="presence-heart" class="presence-heart">🤍</div>
+          <div id="presence-status" class="presence-status">En attente de connexion…</div>
+          <div id="presence-detail" class="presence-detail"></div>
+        </div>
+
+        <!-- 📳 Tu me manques -->
+        <div class="feature-card miss-card">
+          <button id="miss-btn" class="miss-btn">
+            <span class="miss-btn-icon">📳</span>
+            <span class="miss-btn-text">Tu me manques</span>
+          </button>
+          <p class="miss-hint">Envoie une vibration à l’autre ❤️</p>
+        </div>
+        <!-- ☀️ Météo de l'humeur -->
+        <div class="feature-card mood-card">
+          <h3 class="feature-title">☀️ Météo de l'humeur</h3>
+          <div class="mood-display">
+            <div class="mood-person">
+              <span class="mood-person-label" id="mood-my-label">Moi</span>
+              <span class="mood-person-emoji" id="mood-my-emoji">❓</span>
+            </div>
+            <div class="mood-separator">×</div>
+            <div class="mood-person">
+              <span class="mood-person-label" id="mood-partner-label">L'autre</span>
+              <span class="mood-person-emoji" id="mood-partner-emoji">❓</span>
+            </div>
+          </div>
+          <div class="mood-picker" id="mood-picker">
+            <button class="mood-option" data-mood="sunny" title="Ensoleillé">☀️</button>
+            <button class="mood-option" data-mood="partly" title="Partiellement nuageux">⛅</button>
+            <button class="mood-option" data-mood="cloudy" title="Nuageux">☁️</button>
+            <button class="mood-option" data-mood="rainy" title="Pluvieux">🌧️</button>
+            <button class="mood-option" data-mood="stormy" title="Orageux">⛈️</button>
+            <button class="mood-option" data-mood="rainbow" title="Arc-en-ciel">🌈</button>
+            <button class="mood-option" data-mood="love" title="Amoureux">🥰</button>
+            <button class="mood-option" data-mood="fire" title="En feu">🔥</button>
+          </div>
+        </div>
+
+        <!-- 🌟 Mot du jour -->
+        <div class="feature-card word-card">
+          <h3 class="feature-title">🌟 Mot du jour</h3>
+          <div class="word-display">
+            <div class="word-bubble" id="word-my-bubble">
+              <span class="word-author" id="word-my-author">Moi</span>
+              <span class="word-text" id="word-my-text">Pas encore de mot…</span>
+            </div>
+            <div class="word-bubble word-bubble-partner" id="word-partner-bubble">
+              <span class="word-author" id="word-partner-author">L'autre</span>
+              <span class="word-text" id="word-partner-text">Pas encore de mot…</span>
+            </div>
+          </div>
+          <div class="word-input-row">
+            <input id="word-input" type="text" maxlength="120" placeholder="Ton mot du jour…" class="word-input" />
+            <button id="word-send" class="word-send-btn">✨</button>
+          </div>
+        </div>
+        <!-- Placeholder pour futures features -->
+        <div class="feature-card feature-placeholder">
+          <p style="text-align:center;color:rgba(0,0,0,0.3);font-size:14px;">Plus de fonctionnalités bientôt… 💫</p>
+        </div>
+
+        <!-- 🦐 Marcel la crevette -->
+        <div class="feature-card marcel-card">
+          <h3 class="feature-title">🦐 Marcel</h3>
+          <div class="marcel-scene" id="marcel-scene">
+            <div class="marcel-water"></div>
+            <div class="marcel-bubbles" id="marcel-bubbles"></div>
+            <div class="marcel-body" id="marcel-body">
+              <div class="marcel-sprite" id="marcel-sprite">🦐</div>
+            </div>
+            <div class="marcel-mood-indicator" id="marcel-mood"></div>
+          </div>
+          <div class="marcel-stats">
+            <div class="marcel-stat">
+              <span class="marcel-stat-label">Faim</span>
+              <div class="marcel-bar"><div class="marcel-bar-fill hunger-bar" id="marcel-hunger"></div></div>
+            </div>
+            <div class="marcel-stat">
+              <span class="marcel-stat-label">Bonheur</span>
+              <div class="marcel-bar"><div class="marcel-bar-fill happiness-bar" id="marcel-happiness"></div></div>
+            </div>
+            <div class="marcel-stat">
+              <span class="marcel-stat-label">Énergie</span>
+              <div class="marcel-bar"><div class="marcel-bar-fill energy-bar" id="marcel-energy"></div></div>
+            </div>
+          </div>
+          <div class="marcel-info">
+            <span class="marcel-level" id="marcel-level">Niveau 1</span>
+            <span class="marcel-personality" id="marcel-personality">Bébé crevette 🥚</span>
+          </div>
+          <div class="marcel-actions">
+            <button class="marcel-action-btn" id="marcel-feed">🍕 Nourrir</button>
+            <button class="marcel-action-btn marcel-action-pet" id="marcel-pet">💕 Câliner</button>
+            <button class="marcel-action-btn" id="marcel-play">🎾 Jouer</button>
+          </div>
+          <div class="marcel-speech" id="marcel-speech"></div>
+        </div>
+
+        <!-- 📝 Post-its partagés -->
+        <div class="feature-card postits-card">
+          <h3 class="feature-title">📝 Post-its</h3>
+          <div id="postits-list" class="postits-list"></div>
+          <div class="postit-add-row">
+            <input id="postit-input" type="text" maxlength="200" placeholder="Nouveau post-it…" class="postit-input" />
+            <button id="postit-add" class="postit-add-btn">+</button>
+          </div>
+        </div>
+
+        <!-- 🎬 Films/séries -->
+        <div class="feature-card list-card">
+          <h3 class="feature-title">🎬 Films & Séries</h3>
+          <div id="movies-list" class="shared-list"></div>
+          <div class="list-add-row">
+            <input id="movies-input" type="text" maxlength="150" placeholder="Ajouter un film ou série…" class="list-input" />
+            <button class="list-add-btn" data-list="movies">+</button>
+          </div>
+        </div>
+
+        <!-- 🍽️ Restaurants -->
+        <div class="feature-card list-card">
+          <h3 class="feature-title">🍽️ Restaurants & Plats</h3>
+          <div id="restaurants-list" class="shared-list"></div>
+          <div class="list-add-row">
+            <input id="restaurants-input" type="text" maxlength="150" placeholder="Ajouter un restaurant ou plat…" class="list-input" />
+            <button class="list-add-btn" data-list="restaurants">+</button>
+          </div>
+        </div>
+
+        <!-- 🎁 Wishlist -->
+        <div class="feature-card list-card">
+          <h3 class="feature-title">🎁 Wishlist Cadeaux</h3>
+          <div id="wishlist-list" class="shared-list"></div>
+          <div class="list-add-row">
+            <input id="wishlist-input" type="text" maxlength="150" placeholder="Ajouter une idée cadeau…" class="list-input" />
+            <button class="list-add-btn" data-list="wishlist">+</button>
+          </div>
+        </div>
+
+        <!-- 📖 Journal partagé -->
+        <div class="feature-card journal-card">
+          <h3 class="feature-title">📖 Journal partagé</h3>
+          <div class="journal-date-nav">
+            <button id="journal-prev" class="journal-nav-btn">‹</button>
+            <span id="journal-date-label" class="journal-date-label"></span>
+            <button id="journal-next" class="journal-nav-btn">›</button>
+          </div>
+          <div class="journal-entries">
+            <div class="journal-entry">
+              <span class="journal-entry-author" id="journal-my-author">Moi</span>
+              <textarea id="journal-my-text" class="journal-textarea" placeholder="Écris ta pensée du jour…" maxlength="500"></textarea>
+            </div>
+            <div class="journal-entry journal-entry-partner">
+              <span class="journal-entry-author" id="journal-partner-author">L'autre</span>
+              <div id="journal-partner-text" class="journal-partner-display">Pas encore écrit…</div>
+            </div>
+          </div>
+          <button id="journal-save" class="feature-action-btn">💾 Enregistrer</button>
+        </div>
+
+        <!-- ⏱️ placeholder removed, counter is at the top -->
+
+        <!-- 🗺️ Carte du monde -->
+        <div class="feature-card map-card">
+          <h3 class="feature-title">🗺️ Nos lieux</h3>
+          <div id="map-container" class="map-container"></div>
+          <p class="map-hint">Clique sur la carte pour ajouter un lieu</p>
+          <div id="map-places-list" class="map-places-list"></div>
+        </div>
+
+        <!-- 🔔 Alarme partagée -->
+        <div class="feature-card alarm-card">
+          <h3 class="feature-title">🔔 Alarme partagée</h3>
+          <div class="alarm-display">
+            <span class="alarm-time" id="alarm-time-display">Pas d'alarme</span>
+            <span class="alarm-status" id="alarm-status"></span>
+          </div>
+          <div class="alarm-set-row">
+            <input id="alarm-time-input" type="time" class="alarm-time-input" />
+            <button id="alarm-set-btn" class="feature-action-btn">⏰ Définir</button>
+            <button id="alarm-clear-btn" class="feature-action-btn" style="background:rgba(255,0,0,0.08);color:#cc0000;">Supprimer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal date du compteur -->
+    <div id="counter-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h2>⏱️ Depuis quand ?</h2>
+        <p class="modal-subtitle">La date du début de votre histoire</p>
+        <input id="counter-date-input" type="date" class="modal-date-input" />
+        <div class="modal-actions">
+          <button id="counter-save-btn" class="modal-btn modal-btn-primary">Enregistrer</button>
+          <button id="counter-cancel-btn" class="modal-btn">Annuler</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal ajout lieu carte -->
+    <div id="map-place-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h2>📍 Nouveau lieu</h2>
+        <p class="modal-subtitle">Donne un nom à cet endroit</p>
+        <input id="map-place-name" type="text" maxlength="100" placeholder="Ex: Notre premier resto…" class="modal-date-input" style="text-align:left" />
+        <input id="map-place-emoji" type="text" maxlength="4" placeholder="Emoji (ex: ❤️)" class="modal-date-input" value="📍" />
+        <div class="modal-actions">
+          <button id="map-place-save" class="modal-btn modal-btn-primary">Ajouter</button>
+          <button id="map-place-cancel" class="modal-btn">Annuler</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal dessin reçu -->
     <div id="received-modal" class="received-modal hidden">
       <div class="received-card">
@@ -92,6 +336,7 @@
 
     <div id="toasts" class="toasts"></div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="app.js"></script>
   </body>

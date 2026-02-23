@@ -154,6 +154,36 @@ const saveSegmentToDb = (code, segment) => {
 /* ── Gestion des dessins envoyés ───────────────────────── */
 const drawingsDir = path.join(__dirname, "data", "drawings");
 
+/* ── Données partagées (compteur, humeur, etc.) ────────── */
+const sharedDataFile = path.join(dataDir, "shared.json");
+
+const loadSharedData = () => {
+  try {
+    if (fs.existsSync(sharedDataFile)) {
+      return JSON.parse(fs.readFileSync(sharedDataFile, "utf-8"));
+    }
+  } catch (e) {
+    console.warn("Failed to load shared data:", e.message);
+  }
+  return {};
+};
+
+const saveSharedData = () => {
+  try {
+    ensureDataDir();
+    fs.writeFileSync(sharedDataFile, JSON.stringify(sharedData, null, 2));
+  } catch (e) {
+    console.warn("Failed to save shared data:", e.message);
+  }
+};
+
+const getSessionShared = (code) => {
+  if (!sharedData[code]) sharedData[code] = {};
+  return sharedData[code];
+};
+
+let sharedData = loadSharedData();
+
 const ensureDrawingsDir = () => {
   if (!fs.existsSync(drawingsDir)) {
     fs.mkdirSync(drawingsDir, { recursive: true });
@@ -288,6 +318,7 @@ io.on("connection", (socket) => {
       users: Array.from(session.users.values()),
       count: session.users.size,
       strokes: session.strokes,
+      shared: getSessionShared(code),
     });
 
     io.to(code).emit("user_list", {
@@ -295,6 +326,38 @@ io.on("connection", (socket) => {
       count: session.users.size,
       limit: SESSION_LIMIT,
     });
+
+    // Notifier la présence
+    io.to(code).emit("presence", {
+      online: Array.from(session.users.values()),
+      count: session.users.size,
+    });
+  });
+
+  socket.on("heartbeat_ping", () => {
+    const code = socket.data.code;
+    if (!code) return;
+    socket.to(code).emit("heartbeat_ping", { from: socket.data.pseudo });
+  });
+
+  socket.on("miss_you", () => {
+    const code = socket.data.code;
+    if (!code) return;
+    socket.to(code).emit("miss_you", { from: socket.data.pseudo });
+
+    // Pushcut : notifier l'autre personne même si l'app est fermée
+    const notif = {
+      title: "💕 Tu me manques",
+      text: `${socket.data.pseudo} pense à toi !`,
+      sound: "default",
+      isTimeSensitive: true,
+    };
+    // position 1 = user A → notifier B, position 2 = user B → notifier A
+    if (socket.data.position === 1 && PUSHCUT_WEBHOOK_B) {
+      triggerWebhook(PUSHCUT_WEBHOOK_B, notif);
+    } else if (socket.data.position === 2 && PUSHCUT_WEBHOOK_A) {
+      triggerWebhook(PUSHCUT_WEBHOOK_A, notif);
+    }
   });
 
   socket.on("draw", (segment) => {
@@ -375,6 +438,21 @@ io.on("connection", (socket) => {
     socket.emit("drawing_sent", { ok: true });
   });
 
+  /* ── Données partagées ────────────────────────────────── */
+  socket.on("set_shared", (payload) => {
+    const code = socket.data.code;
+    if (!code) return;
+    const session = getSession(code);
+    if (!session) return;
+    const sd = getSessionShared(code);
+    // Merge les clés envoyées
+    if (payload && typeof payload === "object") {
+      Object.assign(sd, payload);
+      saveSharedData();
+      io.to(code).emit("shared_update", sd);
+    }
+  });
+
   socket.on("clear_canvas", () => {
     const code = socket.data.code;
     if (!code) return;
@@ -402,8 +480,53 @@ io.on("connection", (socket) => {
       count: session.users.size,
       limit: SESSION_LIMIT,
     });
+
+    // Notifier la présence (déconnexion)
+    io.to(code).emit("presence", {
+      online: Array.from(session.users.values()),
+      count: session.users.size,
+    });
   });
 });
+
+/* ── Vérification serveur des alarmes (Pushcut) ────────── */
+const alarmFiredToday = new Set(); // "code:HH:MM:YYYY-MM-DD"
+
+setInterval(() => {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const today = now.toISOString().slice(0, 10);
+  const currentTime = `${hh}:${mm}`;
+
+  // Parcourir toutes les sessions pour check les alarmes
+  const sharedData = loadSharedData();
+  for (const [code, sd] of Object.entries(sharedData)) {
+    if (!sd.alarm || !sd.alarm.time) continue;
+    if (sd.alarm.time !== currentTime) continue;
+
+    const key = `${code}:${sd.alarm.time}:${today}`;
+    if (alarmFiredToday.has(key)) continue;
+    alarmFiredToday.add(key);
+
+    // Notifier les deux utilisateurs via Pushcut
+    const notif = {
+      title: "⏰ Alarme Memories !",
+      text: `C'est l'heure ! ${sd.alarm.time} — définie par ${sd.alarm.setBy || "?"}`,
+      sound: "alarm",
+      isTimeSensitive: true,
+    };
+    if (PUSHCUT_WEBHOOK_A) triggerWebhook(PUSHCUT_WEBHOOK_A, notif);
+    if (PUSHCUT_WEBHOOK_B) triggerWebhook(PUSHCUT_WEBHOOK_B, notif);
+
+    console.log(`Alarm triggered for session ${code} at ${currentTime}`);
+  }
+
+  // Nettoyer les anciennes entrées (garder seulement aujourd'hui)
+  for (const key of alarmFiredToday) {
+    if (!key.endsWith(today)) alarmFiredToday.delete(key);
+  }
+}, 30000); // Vérifier toutes les 30 secondes
 
 start().catch((error) => {
   console.error("Failed to start server:", error.message);

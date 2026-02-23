@@ -35,6 +35,77 @@ const tutorialClose = document.getElementById("tutorial-close");
 const toasts = document.getElementById("toasts");
 const connectionStatus = document.getElementById("connection-status");
 
+/* ── Features panel & menu ─────────────────────────────── */
+const menuBtn = document.getElementById("menu-btn");
+const featuresPanel = document.getElementById("features-panel");
+const featuresClose = document.getElementById("features-close");
+
+/* ── Compteur relation ─────────────────────────────────── */
+const counterDaysEl = document.getElementById("counter-days");
+const counterDetailEl = document.getElementById("counter-detail");
+const counterEditBtn = document.getElementById("counter-edit-btn");
+const counterModal = document.getElementById("counter-modal");
+const counterDateInput = document.getElementById("counter-date-input");
+const counterSaveBtn = document.getElementById("counter-save-btn");
+const counterCancelBtn = document.getElementById("counter-cancel-btn");
+
+/* ── Heartbeat presence ────────────────────────────────── */
+const heartbeatWidget = document.getElementById("heartbeat-widget");
+const heartbeatIcon = document.getElementById("heartbeat-icon");
+const heartbeatLabel = document.getElementById("heartbeat-label");
+const presenceHeart = document.getElementById("presence-heart");
+const presenceStatus = document.getElementById("presence-status");
+const presenceDetail = document.getElementById("presence-detail");
+
+/* ── Miss you ──────────────────────────────────────────── */
+const missBtn = document.getElementById("miss-btn");
+
+/* ── Mood weather ──────────────────────────────────────── */
+const moodMyLabel = document.getElementById("mood-my-label");
+const moodMyEmoji = document.getElementById("mood-my-emoji");
+const moodPartnerLabel = document.getElementById("mood-partner-label");
+const moodPartnerEmoji = document.getElementById("mood-partner-emoji");
+const moodPicker = document.getElementById("mood-picker");
+
+/* ── Word of the day ───────────────────────────────────── */
+const wordMyAuthor = document.getElementById("word-my-author");
+const wordMyText = document.getElementById("word-my-text");
+const wordPartnerAuthor = document.getElementById("word-partner-author");
+const wordPartnerText = document.getElementById("word-partner-text");
+const wordInput = document.getElementById("word-input");
+const wordSendBtn = document.getElementById("word-send");
+
+/* ── Post-its ──────────────────────────────────────────── */
+const postitsList = document.getElementById("postits-list");
+const postitInput = document.getElementById("postit-input");
+const postitAddBtn = document.getElementById("postit-add");
+
+/* ── Journal ───────────────────────────────────────────── */
+const journalPrev = document.getElementById("journal-prev");
+const journalNext = document.getElementById("journal-next");
+const journalDateLabel = document.getElementById("journal-date-label");
+const journalMyAuthor = document.getElementById("journal-my-author");
+const journalMyText = document.getElementById("journal-my-text");
+const journalPartnerAuthor = document.getElementById("journal-partner-author");
+const journalPartnerText = document.getElementById("journal-partner-text");
+const journalSave = document.getElementById("journal-save");
+
+/* ── Map ───────────────────────────────────────────────── */
+const mapContainer = document.getElementById("map-container");
+const mapPlacesList = document.getElementById("map-places-list");
+const mapPlaceModal = document.getElementById("map-place-modal");
+const mapPlaceName = document.getElementById("map-place-name");
+const mapPlaceEmoji = document.getElementById("map-place-emoji");
+const mapPlaceSave = document.getElementById("map-place-save");
+const mapPlaceCancel = document.getElementById("map-place-cancel");
+
+/* ── Alarm ─────────────────────────────────────────────── */
+const alarmTimeDisplay = document.getElementById("alarm-time-display");
+const alarmStatus = document.getElementById("alarm-status");
+const alarmTimeInput = document.getElementById("alarm-time-input");
+const alarmSetBtn = document.getElementById("alarm-set-btn");
+const alarmClearBtn = document.getElementById("alarm-clear-btn");
+
 /* ── Utilitaires ───────────────────────────────────────── */
 const showToast = (message) => {
   const toast = document.createElement("div");
@@ -501,6 +572,902 @@ tutorialClose.addEventListener("click", () => {
   tutorial.classList.add("hidden");
 });
 
+/* ── Features panel (menu) ─────────────────────────────── */
+menuBtn.addEventListener("click", () => {
+  featuresPanel.classList.remove("hidden");
+  // Init map quand le panel s'ouvre (Leaflet a besoin d'un container visible)
+  setTimeout(() => {
+    initMap();
+    if (leafletMap) leafletMap.invalidateSize();
+    renderMapPlaces();
+  }, 100);
+});
+
+featuresClose.addEventListener("click", () => {
+  featuresPanel.classList.add("hidden");
+});
+
+/* ── Compteur relation ─────────────────────────────────── */
+let sharedDataLocal = {};
+
+const updateCounter = () => {
+  const dateStr = sharedDataLocal.relationshipDate;
+  if (!dateStr) {
+    counterDaysEl.textContent = "—";
+    counterDetailEl.textContent = "Définissez votre date pour démarrer le compteur";
+    counterEditBtn.textContent = "📅 Définir la date";
+    return;
+  }
+
+  const start = new Date(dateStr + "T00:00:00");
+  const now = new Date();
+  const diffMs = now - start;
+  const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  counterDaysEl.textContent = totalDays.toLocaleString("fr-FR");
+
+  // Détail : années, mois, jours
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  let days = now.getDate() - start.getDate();
+  if (days < 0) {
+    months--;
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+
+  const parts = [];
+  if (years > 0) parts.push(`${years} an${years > 1 ? "s" : ""}`);
+  if (months > 0) parts.push(`${months} mois`);
+  if (days > 0) parts.push(`${days} jour${days > 1 ? "s" : ""}`);
+
+  counterDetailEl.textContent = parts.length ? parts.join(", ") : "Aujourd'hui ! 🎉";
+
+  // Milestones spéciaux
+  const milestones = [100, 200, 365, 500, 730, 1000, 1095, 1461, 2000];
+  if (milestones.includes(totalDays)) {
+    counterDetailEl.textContent += ` ✨ ${totalDays} jours !`;
+  }
+
+  counterEditBtn.textContent = "📅 Modifier la date";
+};
+
+// Mettre à jour le compteur chaque minute
+setInterval(updateCounter, 60000);
+
+counterEditBtn.addEventListener("click", () => {
+  if (sharedDataLocal.relationshipDate) {
+    counterDateInput.value = sharedDataLocal.relationshipDate;
+  }
+  counterModal.classList.remove("hidden");
+});
+
+counterSaveBtn.addEventListener("click", () => {
+  const val = counterDateInput.value;
+  if (!val) {
+    showToast("Choisis une date !");
+    return;
+  }
+  socket.emit("set_shared", { relationshipDate: val });
+  counterModal.classList.add("hidden");
+  showToast("Date enregistrée 💕");
+});
+
+counterCancelBtn.addEventListener("click", () => {
+  counterModal.classList.add("hidden");
+});
+
+/* ── Heartbeat / Présence ──────────────────────────────── */
+let partnerOnline = false;
+let myPseudo = "";
+
+const updatePresenceUI = (online, count) => {
+  const others = online.filter((u) => u !== myPseudo);
+  partnerOnline = others.length > 0;
+
+  if (partnerOnline) {
+    const partnerName = others[0];
+    heartbeatIcon.textContent = "❤️";
+    heartbeatIcon.classList.add("beating");
+    heartbeatLabel.textContent = `${partnerName} est là`;
+    heartbeatWidget.classList.add("online");
+
+    presenceHeart.textContent = "❤️";
+    presenceHeart.classList.add("beating");
+    presenceStatus.textContent = `${partnerName} est connecté(e) !`;
+    presenceDetail.textContent = "Son cœur bat avec le tien en ce moment 💓";
+  } else {
+    heartbeatIcon.textContent = "🤍";
+    heartbeatIcon.classList.remove("beating");
+    heartbeatLabel.textContent = "Hors ligne";
+    heartbeatWidget.classList.remove("online");
+
+    presenceHeart.textContent = "🤍";
+    presenceHeart.classList.remove("beating");
+    presenceStatus.textContent = "Pas encore connecté(e)…";
+    presenceDetail.textContent = "Le cœur battra quand l'autre se connecte";
+  }
+};
+
+// Envoyer un heartbeat ping toutes les 30s
+setInterval(() => {
+  if (socket.connected && currentSessionCode) {
+    socket.emit("heartbeat_ping");
+  }
+}, 30000);
+
+/* ── Miss you ──────────────────────────────────────────── */
+let missCooldown = false;
+
+missBtn.addEventListener("click", () => {
+  if (!socket.connected || !currentSessionCode) {
+    showToast("Pas connecté.");
+    return;
+  }
+  if (missCooldown) return;
+
+  socket.emit("miss_you");
+  missBtn.disabled = true;
+  missCooldown = true;
+  showToast("💕 Envoyé !");
+
+  // Vibrer sur son propre appareil aussi
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+  setTimeout(() => {
+    missBtn.disabled = false;
+    missCooldown = false;
+  }, 5000); // Cooldown 5s
+});
+
+const showMissOverlay = (fromName) => {
+  // Vibrer le téléphone
+  if (navigator.vibrate) {
+    navigator.vibrate([200, 100, 200, 100, 300]);
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "miss-overlay";
+  overlay.innerHTML = `
+    <div class="miss-overlay-content">
+      <span class="miss-overlay-emoji">💕</span>
+      <div class="miss-overlay-text">${fromName} pense à toi !</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  setTimeout(() => overlay.remove(), 2800);
+
+  // Notification navigateur
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification("Tu me manques 💕", {
+      body: `${fromName} pense fort à toi !`,
+    });
+  }
+};
+
+/* ── Mood weather ──────────────────────────────────────── */
+const MOOD_EMOJIS = {
+  sunny: "☀️", partly: "⛅", cloudy: "☁️", rainy: "🌧️",
+  stormy: "⛈️", rainbow: "🌈", love: "🥰", fire: "🔥",
+};
+
+const updateMoodUI = () => {
+  const moods = sharedDataLocal.moods || {};
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Mon humeur
+  const myMood = moods[myPseudo];
+  if (myMood && myMood.date === today) {
+    moodMyEmoji.textContent = MOOD_EMOJIS[myMood.mood] || "❓";
+    // Highlight selected button
+    moodPicker.querySelectorAll(".mood-option").forEach((btn) => {
+      btn.classList.toggle("selected", btn.dataset.mood === myMood.mood);
+    });
+  } else {
+    moodMyEmoji.textContent = "❓";
+    moodPicker.querySelectorAll(".mood-option").forEach((btn) => {
+      btn.classList.remove("selected");
+    });
+  }
+
+  moodMyLabel.textContent = myPseudo || "Moi";
+
+  // Humeur du partenaire
+  const otherNames = Object.keys(moods).filter((n) => n !== myPseudo);
+  if (otherNames.length > 0) {
+    const partnerName = otherNames[0];
+    const partnerMood = moods[partnerName];
+    moodPartnerLabel.textContent = partnerName;
+    if (partnerMood && partnerMood.date === today) {
+      moodPartnerEmoji.textContent = MOOD_EMOJIS[partnerMood.mood] || "❓";
+    } else {
+      moodPartnerEmoji.textContent = "❓";
+    }
+  } else {
+    moodPartnerLabel.textContent = "L'autre";
+    moodPartnerEmoji.textContent = "❓";
+  }
+};
+
+moodPicker.addEventListener("click", (e) => {
+  const btn = e.target.closest(".mood-option");
+  if (!btn) return;
+  const mood = btn.dataset.mood;
+  if (!mood || !myPseudo) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const moods = sharedDataLocal.moods || {};
+  moods[myPseudo] = { mood, date: today };
+
+  socket.emit("set_shared", { moods });
+  showToast(`Humeur mise à jour : ${MOOD_EMOJIS[mood]}`);
+});
+
+/* ── Word of the day ───────────────────────────────────── */
+const updateWordUI = () => {
+  const words = sharedDataLocal.words || {};
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Mon mot
+  const myWord = words[myPseudo];
+  wordMyAuthor.textContent = myPseudo || "Moi";
+  if (myWord && myWord.date === today) {
+    wordMyText.textContent = myWord.text;
+    wordInput.value = myWord.text;
+  } else {
+    wordMyText.textContent = "Pas encore de mot…";
+    wordInput.value = "";
+  }
+
+  // Mot du partenaire
+  const otherNames = Object.keys(words).filter((n) => n !== myPseudo);
+  if (otherNames.length > 0) {
+    const pName = otherNames[0];
+    const pWord = words[pName];
+    wordPartnerAuthor.textContent = pName;
+    if (pWord && pWord.date === today) {
+      wordPartnerText.textContent = pWord.text;
+    } else {
+      wordPartnerText.textContent = "Pas encore de mot…";
+    }
+  } else {
+    wordPartnerAuthor.textContent = "L'autre";
+    wordPartnerText.textContent = "Pas encore de mot…";
+  }
+};
+
+wordSendBtn.addEventListener("click", () => {
+  const text = wordInput.value.trim();
+  if (!text) {
+    showToast("Écris quelque chose !");
+    return;
+  }
+  if (!myPseudo) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const words = sharedDataLocal.words || {};
+  words[myPseudo] = { text, date: today };
+
+  socket.emit("set_shared", { words });
+  showToast("Mot du jour envoyé 🌟");
+});
+
+wordInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") wordSendBtn.click();
+});
+
+/* ── Post-its ──────────────────────────────────────────── */
+const POSTIT_COLORS = ["color-yellow", "color-pink", "color-blue", "color-green", "color-purple"];
+
+const renderPostits = () => {
+  const postits = sharedDataLocal.postits || [];
+  postitsList.innerHTML = "";
+
+  if (postits.length === 0) {
+    postitsList.innerHTML = '<div class="postits-empty">Aucun post-it pour l\'instant 📌</div>';
+    return;
+  }
+
+  postits.forEach((p, i) => {
+    const colorClass = POSTIT_COLORS[i % POSTIT_COLORS.length];
+    const div = document.createElement("div");
+    div.className = `postit-item ${colorClass}`;
+    div.innerHTML = `
+      <div class="postit-text">${escapeHtml(p.text)}<span class="postit-author">— ${escapeHtml(p.author)}</span></div>
+      <button class="postit-delete" data-index="${i}">✕</button>
+    `;
+    postitsList.appendChild(div);
+  });
+};
+
+const escapeHtml = (str) =>
+  str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+postitAddBtn.addEventListener("click", () => {
+  const text = postitInput.value.trim();
+  if (!text) return;
+  if (!myPseudo) return;
+
+  const postits = sharedDataLocal.postits || [];
+  postits.push({ text, author: myPseudo, id: Date.now() });
+
+  socket.emit("set_shared", { postits });
+  postitInput.value = "";
+  showToast("Post-it ajouté 📝");
+});
+
+postitInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") postitAddBtn.click();
+});
+
+postitsList.addEventListener("click", (e) => {
+  const btn = e.target.closest(".postit-delete");
+  if (!btn) return;
+  const idx = Number(btn.dataset.index);
+  const postits = sharedDataLocal.postits || [];
+  if (idx >= 0 && idx < postits.length) {
+    postits.splice(idx, 1);
+    socket.emit("set_shared", { postits });
+  }
+});
+
+/* ── Shared Lists (films, restaurants, wishlist) ───────── */
+const LISTS_CONFIG = {
+  movies: { el: document.getElementById("movies-list"), input: document.getElementById("movies-input"), emoji: "🎬", emptyMsg: "Rien dans la liste pour l'instant 🍿" },
+  restaurants: { el: document.getElementById("restaurants-list"), input: document.getElementById("restaurants-input"), emoji: "🍽️", emptyMsg: "Rien dans la liste pour l'instant 🫕" },
+  wishlist: { el: document.getElementById("wishlist-list"), input: document.getElementById("wishlist-input"), emoji: "🎁", emptyMsg: "Rien dans la liste pour l'instant 🎀" },
+};
+
+const renderSharedList = (key) => {
+  const cfg = LISTS_CONFIG[key];
+  if (!cfg) return;
+  const items = sharedDataLocal[key] || [];
+  cfg.el.innerHTML = "";
+
+  if (items.length === 0) {
+    cfg.el.innerHTML = `<div class="shared-list-empty">${cfg.emptyMsg}</div>`;
+    return;
+  }
+
+  items.forEach((item, i) => {
+    const div = document.createElement("div");
+    div.className = "list-item";
+    div.innerHTML = `
+      <button class="list-item-check ${item.done ? 'checked' : ''}" data-list="${key}" data-index="${i}">${item.done ? '✓' : ''}</button>
+      <span class="list-item-text ${item.done ? 'checked-text' : ''}">${escapeHtml(item.text)}</span>
+      <span class="list-item-author">${escapeHtml(item.author || '')}</span>
+      <button class="list-item-delete" data-list="${key}" data-index="${i}">✕</button>
+    `;
+    cfg.el.appendChild(div);
+  });
+};
+
+const renderAllLists = () => {
+  Object.keys(LISTS_CONFIG).forEach(renderSharedList);
+};
+
+// Add item
+document.querySelectorAll(".list-add-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const key = btn.dataset.list;
+    const cfg = LISTS_CONFIG[key];
+    if (!cfg) return;
+    const text = cfg.input.value.trim();
+    if (!text || !myPseudo) return;
+
+    const items = sharedDataLocal[key] || [];
+    items.push({ text, author: myPseudo, done: false, id: Date.now() });
+    socket.emit("set_shared", { [key]: items });
+    cfg.input.value = "";
+  });
+});
+
+// Enter key for list inputs
+Object.values(LISTS_CONFIG).forEach((cfg) => {
+  cfg.input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      cfg.input.closest(".list-add-row").querySelector(".list-add-btn").click();
+    }
+  });
+});
+
+// Toggle check and delete
+document.addEventListener("click", (e) => {
+  const checkBtn = e.target.closest(".list-item-check");
+  if (checkBtn) {
+    const key = checkBtn.dataset.list;
+    const idx = Number(checkBtn.dataset.index);
+    const items = sharedDataLocal[key] || [];
+    if (idx >= 0 && idx < items.length) {
+      items[idx].done = !items[idx].done;
+      socket.emit("set_shared", { [key]: items });
+    }
+    return;
+  }
+
+  const delBtn = e.target.closest(".list-item-delete");
+  if (delBtn) {
+    const key = delBtn.dataset.list;
+    const idx = Number(delBtn.dataset.index);
+    const items = sharedDataLocal[key] || [];
+    if (idx >= 0 && idx < items.length) {
+      items.splice(idx, 1);
+      socket.emit("set_shared", { [key]: items });
+    }
+  }
+});
+
+/* ── Journal partagé ───────────────────────────────────── */
+let journalDate = new Date().toISOString().slice(0, 10);
+
+const formatDateFr = (dateStr) => {
+  const d = new Date(dateStr + "T12:00:00");
+  return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" });
+};
+
+const updateJournalUI = () => {
+  journalDateLabel.textContent = formatDateFr(journalDate);
+  journalMyAuthor.textContent = myPseudo || "Moi";
+
+  const journal = sharedDataLocal.journal || {};
+  const dayEntry = journal[journalDate] || {};
+
+  // Mon texte
+  const myEntry = dayEntry[myPseudo];
+  journalMyText.value = myEntry || "";
+
+  // Texte du partenaire
+  const otherNames = Object.keys(dayEntry).filter((n) => n !== myPseudo);
+  if (otherNames.length > 0) {
+    const pName = otherNames[0];
+    journalPartnerAuthor.textContent = pName;
+    journalPartnerText.textContent = dayEntry[pName] || "Pas encore écrit…";
+  } else {
+    journalPartnerAuthor.textContent = "L'autre";
+    journalPartnerText.textContent = "Pas encore écrit…";
+  }
+
+  // Disable next si c'est aujourd'hui
+  const today = new Date().toISOString().slice(0, 10);
+  journalNext.disabled = journalDate >= today;
+};
+
+journalPrev.addEventListener("click", () => {
+  const d = new Date(journalDate + "T12:00:00");
+  d.setDate(d.getDate() - 1);
+  journalDate = d.toISOString().slice(0, 10);
+  updateJournalUI();
+});
+
+journalNext.addEventListener("click", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  if (journalDate >= today) return;
+  const d = new Date(journalDate + "T12:00:00");
+  d.setDate(d.getDate() + 1);
+  journalDate = d.toISOString().slice(0, 10);
+  updateJournalUI();
+});
+
+journalSave.addEventListener("click", () => {
+  const text = journalMyText.value.trim();
+  if (!myPseudo) return;
+
+  const journal = sharedDataLocal.journal || {};
+  if (!journal[journalDate]) journal[journalDate] = {};
+  journal[journalDate][myPseudo] = text;
+
+  socket.emit("set_shared", { journal });
+  showToast("Journal enregistré 📖");
+});
+
+/* ── Map (Leaflet) ─────────────────────────────────────── */
+let leafletMap = null;
+let mapMarkers = [];
+let pendingLatLng = null;
+let mapInitialized = false;
+
+const initMap = () => {
+  if (mapInitialized || !window.L) return;
+  mapInitialized = true;
+
+  leafletMap = L.map(mapContainer, {
+    center: [46.6, 2.3], // France centre
+    zoom: 3,
+    zoomControl: true,
+    attributionControl: false,
+  });
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+  }).addTo(leafletMap);
+
+  leafletMap.on("click", (e) => {
+    pendingLatLng = e.latlng;
+    mapPlaceName.value = "";
+    mapPlaceEmoji.value = "📍";
+    mapPlaceModal.classList.remove("hidden");
+  });
+};
+
+mapPlaceSave.addEventListener("click", () => {
+  if (!pendingLatLng) return;
+  const name = mapPlaceName.value.trim();
+  if (!name) { showToast("Donne un nom au lieu !"); return; }
+
+  const places = sharedDataLocal.places || [];
+  places.push({
+    name,
+    emoji: mapPlaceEmoji.value.trim() || "📍",
+    lat: pendingLatLng.lat,
+    lng: pendingLatLng.lng,
+    author: myPseudo,
+    id: Date.now(),
+  });
+
+  socket.emit("set_shared", { places });
+  mapPlaceModal.classList.add("hidden");
+  pendingLatLng = null;
+  showToast("Lieu ajouté 🗺️");
+});
+
+mapPlaceCancel.addEventListener("click", () => {
+  mapPlaceModal.classList.add("hidden");
+  pendingLatLng = null;
+});
+
+const renderMapPlaces = () => {
+  const places = sharedDataLocal.places || [];
+
+  // Clear markers
+  mapMarkers.forEach((m) => m.remove());
+  mapMarkers = [];
+
+  // Render markers
+  if (leafletMap && window.L) {
+    places.forEach((p) => {
+      const icon = L.divIcon({
+        html: `<span style="font-size:24px">${p.emoji}</span>`,
+        className: "",
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+      });
+      const marker = L.marker([p.lat, p.lng], { icon }).addTo(leafletMap);
+      marker.bindPopup(`<b>${p.emoji} ${p.name}</b><br><small>par ${p.author}</small>`);
+      mapMarkers.push(marker);
+    });
+  }
+
+  // Render list
+  mapPlacesList.innerHTML = "";
+  places.forEach((p, i) => {
+    const div = document.createElement("div");
+    div.className = "map-place-item";
+    div.innerHTML = `
+      <span class="map-place-emoji">${p.emoji}</span>
+      <span class="map-place-name">${escapeHtml(p.name)}</span>
+      <button class="map-place-delete" data-index="${i}">✕</button>
+    `;
+    mapPlacesList.appendChild(div);
+  });
+};
+
+mapPlacesList.addEventListener("click", (e) => {
+  const btn = e.target.closest(".map-place-delete");
+  if (!btn) return;
+  const idx = Number(btn.dataset.index);
+  const places = sharedDataLocal.places || [];
+  if (idx >= 0 && idx < places.length) {
+    places.splice(idx, 1);
+    socket.emit("set_shared", { places });
+  }
+});
+
+/* ── Alarme partagée ───────────────────────────────────── */
+let alarmInterval = null;
+let alarmRinging = false;
+
+const updateAlarmUI = () => {
+  const alarm = sharedDataLocal.alarm;
+  if (!alarm || !alarm.time) {
+    alarmTimeDisplay.textContent = "Pas d'alarme";
+    alarmStatus.textContent = "";
+    return;
+  }
+
+  alarmTimeDisplay.textContent = alarm.time;
+  alarmTimeInput.value = alarm.time;
+
+  // Calculate time remaining
+  const now = new Date();
+  const [h, m] = alarm.time.split(":").map(Number);
+  const target = new Date(now);
+  target.setHours(h, m, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+
+  const diffMs = target - now;
+  const diffH = Math.floor(diffMs / 3600000);
+  const diffM = Math.floor((diffMs % 3600000) / 60000);
+
+  if (diffH > 0) {
+    alarmStatus.textContent = `Dans ${diffH}h${diffM.toString().padStart(2, "0")}`;
+  } else {
+    alarmStatus.textContent = `Dans ${diffM} min`;
+  }
+};
+
+alarmSetBtn.addEventListener("click", () => {
+  const time = alarmTimeInput.value;
+  if (!time) { showToast("Choisis une heure !"); return; }
+  socket.emit("set_shared", { alarm: { time, setBy: myPseudo } });
+  showToast("Alarme définie ⏰");
+});
+
+alarmClearBtn.addEventListener("click", () => {
+  socket.emit("set_shared", { alarm: null });
+  showToast("Alarme supprimée");
+});
+
+const checkAlarm = () => {
+  const alarm = sharedDataLocal.alarm;
+  if (!alarm || !alarm.time || alarmRinging) return;
+
+  const now = new Date();
+  const [h, m] = alarm.time.split(":").map(Number);
+  if (now.getHours() === h && now.getMinutes() === m) {
+    triggerAlarm(alarm.time);
+  }
+
+  updateAlarmUI();
+};
+
+const triggerAlarm = (time) => {
+  alarmRinging = true;
+
+  if (navigator.vibrate) {
+    navigator.vibrate([500, 200, 500, 200, 500, 200, 500]);
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "alarm-overlay";
+  overlay.innerHTML = `
+    <span class="alarm-overlay-emoji">⏰</span>
+    <div class="alarm-overlay-time">${time}</div>
+    <div class="alarm-overlay-text">C'est l'heure ! 🌅</div>
+    <button class="alarm-dismiss-btn">Arrêter</button>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector(".alarm-dismiss-btn").addEventListener("click", () => {
+    overlay.remove();
+    alarmRinging = false;
+  });
+
+  // Auto-dismiss after 60s
+  setTimeout(() => {
+    if (overlay.parentNode) overlay.remove();
+    alarmRinging = false;
+  }, 60000);
+
+  // Notification
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification("⏰ Alarme !", { body: `C'est l'heure ! ${time}` });
+  }
+};
+
+// Check alarm every 15 seconds
+setInterval(checkAlarm, 15000);
+
+/* ── Marcel la crevette 🦐 ─────────────────────────────── */
+const marcelSprite = document.getElementById("marcel-sprite");
+const marcelBubbles = document.getElementById("marcel-bubbles");
+const marcelMood = document.getElementById("marcel-mood");
+const marcelHungerBar = document.getElementById("marcel-hunger");
+const marcelHappinessBar = document.getElementById("marcel-happiness");
+const marcelEnergyBar = document.getElementById("marcel-energy");
+const marcelLevel = document.getElementById("marcel-level");
+const marcelPersonality = document.getElementById("marcel-personality");
+const marcelFeedBtn = document.getElementById("marcel-feed");
+const marcelPetBtn = document.getElementById("marcel-pet");
+const marcelPlayBtn = document.getElementById("marcel-play");
+const marcelSpeech = document.getElementById("marcel-speech");
+
+const MARCEL_SPEECHES = {
+  hungry: ["J'ai faim… 🥺", "Une petite algue ? 🌿", "Mon ventre gargouille…", "Psst… t'as pas un truc à manger ?"],
+  happy: ["Je suis trop content ! 😄", "La vie est belle sous l'eau 🌊", "Vous êtes les meilleurs humains !", "Je fais des bulles de bonheur ✨"],
+  sad: ["Je me sens seul… 😢", "Un câlin ? 🥺", "Vous m'avez oublié…", "L'eau est froide aujourd'hui…"],
+  tired: ["*bâille* 😴", "Zzz… je fais une sieste…", "Tellement fatigué…", "5 minutes de plus…"],
+  love: ["Je vous aime tous les deux ! 💕", "Merci de prendre soin de moi 🥰", "Vous êtes mon monde entier 🌍", "Câlin collectif ! 🫂"],
+  fed: ["Miam miam ! 😋", "Délicieux ! Merci ! 🍕", "Mon plat préféré !", "Encore ! Encore ! 😋"],
+  petted: ["Ronron… euh, blublub ! 💕", "J'adore les câlins ! 🥰", "Continue, continue…", "Oh oui, juste là… parfait !"],
+  played: ["Trop fun ! 🎾", "Je suis le roi du ballon ! ⚽", "Encore une partie ! 🏓", "Je suis imbattable ! 🏆"],
+  evolved: ["Je grandis ! 🌟", "Je me sens plus fort ! 💪", "Nouvelle forme débloquée ! ✨", "Marcel évolue ! 🦐✨"],
+};
+
+const MARCEL_STAGES = [
+  { level: 1, name: "Bébé crevette 🥚", emoji: "🦐", minDays: 0 },
+  { level: 2, name: "Petite crevette 🍤", emoji: "🦐", minDays: 3 },
+  { level: 3, name: "Crevette curieuse 🔍", emoji: "🦐", minDays: 7 },
+  { level: 4, name: "Crevette joyeuse 🎉", emoji: "🦐", minDays: 14 },
+  { level: 5, name: "Super crevette ⭐", emoji: "🦐", minDays: 30 },
+  { level: 6, name: "Crevette royale 👑", emoji: "🦐", minDays: 60 },
+  { level: 7, name: "Crevette légendaire 🌟", emoji: "🦐", minDays: 100 },
+  { level: 8, name: "Marcel le Magnifique ✨", emoji: "🦐", minDays: 200 },
+];
+
+const getMarcelDefault = () => ({
+  hunger: 70,
+  happiness: 70,
+  energy: 80,
+  born: new Date().toISOString(),
+  lastFed: null,
+  lastPetted: null,
+  lastPlayed: null,
+  lastDecay: new Date().toISOString(),
+  totalInteractions: 0,
+});
+
+const getMarcelState = () => {
+  if (!sharedDataLocal.marcel) {
+    sharedDataLocal.marcel = getMarcelDefault();
+  }
+  return sharedDataLocal.marcel;
+};
+
+const getMarcelStage = (marcel) => {
+  const bornDate = new Date(marcel.born);
+  const daysSinceBorn = Math.floor((Date.now() - bornDate) / 86400000);
+  let stage = MARCEL_STAGES[0];
+  for (const s of MARCEL_STAGES) {
+    if (daysSinceBorn >= s.minDays && marcel.totalInteractions >= s.minDays * 2) {
+      stage = s;
+    }
+  }
+  return stage;
+};
+
+const marcelSay = (category) => {
+  const phrases = MARCEL_SPEECHES[category] || MARCEL_SPEECHES.happy;
+  const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+  marcelSpeech.textContent = `"${phrase}"`;
+};
+
+const spawnBubble = () => {
+  const bubble = document.createElement("div");
+  bubble.className = "marcel-bubble";
+  bubble.style.left = `${20 + Math.random() * 60}%`;
+  bubble.style.bottom = `${Math.random() * 30}%`;
+  bubble.style.animationDuration = `${2 + Math.random() * 3}s`;
+  bubble.style.width = bubble.style.height = `${4 + Math.random() * 8}px`;
+  marcelBubbles.appendChild(bubble);
+  setTimeout(() => bubble.remove(), 4000);
+};
+
+// Spawn bubbles periodically
+setInterval(spawnBubble, 2000);
+
+const decayMarcel = (marcel) => {
+  const lastDecay = new Date(marcel.lastDecay || marcel.born);
+  const hoursSince = (Date.now() - lastDecay) / 3600000;
+  if (hoursSince < 1) return false;
+
+  const decaySteps = Math.min(Math.floor(hoursSince), 24);
+  marcel.hunger = Math.max(0, marcel.hunger - decaySteps * 3);
+  marcel.happiness = Math.max(0, marcel.happiness - decaySteps * 2);
+  marcel.energy = Math.min(100, marcel.energy + decaySteps * 1); // Energy recovers with rest
+  marcel.lastDecay = new Date().toISOString();
+  return true;
+};
+
+const updateMarcelUI = () => {
+  const marcel = getMarcelState();
+  const decayed = decayMarcel(marcel);
+
+  // Stats bars
+  marcelHungerBar.style.width = `${marcel.hunger}%`;
+  marcelHappinessBar.style.width = `${marcel.happiness}%`;
+  marcelEnergyBar.style.width = `${marcel.energy}%`;
+
+  // Stage
+  const stage = getMarcelStage(marcel);
+  marcelLevel.textContent = `Niveau ${stage.level}`;
+  marcelPersonality.textContent = stage.name;
+
+  // Mood indicator
+  if (marcel.hunger < 20) {
+    marcelMood.textContent = "😫";
+    if (!marcelSpeech.textContent) marcelSay("hungry");
+  } else if (marcel.happiness < 20) {
+    marcelMood.textContent = "😢";
+    if (!marcelSpeech.textContent) marcelSay("sad");
+  } else if (marcel.energy < 20) {
+    marcelMood.textContent = "😴";
+    marcelSprite.classList.add("sleeping");
+    if (!marcelSpeech.textContent) marcelSay("tired");
+  } else if (marcel.happiness > 80 && marcel.hunger > 60) {
+    marcelMood.textContent = "🥰";
+    marcelSprite.classList.remove("sleeping");
+  } else {
+    marcelMood.textContent = "😊";
+    marcelSprite.classList.remove("sleeping");
+  }
+
+  // Cooldowns (1 action per type every 30s)
+  const now = Date.now();
+  marcelFeedBtn.disabled = marcel.lastFed && (now - new Date(marcel.lastFed)) < 30000;
+  marcelPetBtn.disabled = marcel.lastPetted && (now - new Date(marcel.lastPetted)) < 30000;
+  marcelPlayBtn.disabled = marcel.lastPlayed && (now - new Date(marcel.lastPlayed)) < 30000 || marcel.energy < 10;
+
+  if (decayed) {
+    socket.emit("set_shared", { marcel });
+  }
+};
+
+// Feed
+marcelFeedBtn.addEventListener("click", () => {
+  const marcel = getMarcelState();
+  marcel.hunger = Math.min(100, marcel.hunger + 25);
+  marcel.lastFed = new Date().toISOString();
+  marcel.totalInteractions++;
+
+  marcelSprite.classList.remove("happy", "playing", "sleeping");
+  marcelSprite.classList.add("eating");
+  setTimeout(() => marcelSprite.classList.remove("eating"), 1500);
+
+  marcelSay("fed");
+  spawnBubble(); spawnBubble(); spawnBubble();
+  socket.emit("set_shared", { marcel });
+});
+
+// Pet
+marcelPetBtn.addEventListener("click", () => {
+  const marcel = getMarcelState();
+  marcel.happiness = Math.min(100, marcel.happiness + 20);
+  marcel.lastPetted = new Date().toISOString();
+  marcel.totalInteractions++;
+
+  marcelSprite.classList.remove("eating", "playing", "sleeping");
+  marcelSprite.classList.add("happy");
+  setTimeout(() => marcelSprite.classList.remove("happy"), 1800);
+
+  marcelSay("petted");
+  spawnBubble(); spawnBubble();
+  socket.emit("set_shared", { marcel });
+});
+
+// Play
+marcelPlayBtn.addEventListener("click", () => {
+  const marcel = getMarcelState();
+  marcel.happiness = Math.min(100, marcel.happiness + 15);
+  marcel.energy = Math.max(0, marcel.energy - 15);
+  marcel.lastPlayed = new Date().toISOString();
+  marcel.totalInteractions++;
+
+  marcelSprite.classList.remove("eating", "happy", "sleeping");
+  marcelSprite.classList.add("playing");
+  setTimeout(() => marcelSprite.classList.remove("playing"), 2000);
+
+  marcelSay("played");
+  spawnBubble(); spawnBubble(); spawnBubble(); spawnBubble();
+  socket.emit("set_shared", { marcel });
+});
+
+// Update Marcel every 10s
+setInterval(updateMarcelUI, 10000);
+
+// Auto-speech every 45s
+setInterval(() => {
+  const marcel = getMarcelState();
+  if (marcel.hunger < 20) marcelSay("hungry");
+  else if (marcel.happiness < 20) marcelSay("sad");
+  else if (marcel.happiness > 80) marcelSay("love");
+  else marcelSay("happy");
+}, 45000);
+
 /* ── Join ───────────────────────────────────────────────── */
 joinBtn.addEventListener("click", () => {
   const pseudo = pseudoInput.value.trim();
@@ -552,9 +1519,29 @@ socket.on("init", (payload) => {
   entryEl.classList.add("hidden");
   toolbar.classList.remove("hidden");
   usersBadge.classList.remove("hidden");
+  menuBtn.classList.remove("hidden");
+  heartbeatWidget.classList.remove("hidden");
   currentSessionCode = payload.code;
+  myPseudo = pseudoInput.value.trim();
   strokes = payload.strokes || [];
   setUserList(payload.users || [], payload.count || 0, payload.limit || 2);
+
+  // Charger les données partagées
+  if (payload.shared) {
+    sharedDataLocal = payload.shared;
+    updateCounter();
+    updateMoodUI();
+    updateWordUI();
+    renderPostits();
+    renderAllLists();
+    updateJournalUI();
+    updateAlarmUI();
+    updateMarcelUI();
+  }
+
+  // Présence initiale
+  updatePresenceUI(payload.users || [], payload.count || 0);
+
   requestRedraw();
 
   // Montrer la bannière de demande de notifications (toujours sur mobile)
@@ -597,6 +1584,39 @@ socket.on("drawing_sent", () => {
   sendBtn.disabled = false;
   sendBtn.textContent = "📩";
   showToast("Dessin envoyé !");
+});
+
+socket.on("shared_update", (data) => {
+  if (data && typeof data === "object") {
+    sharedDataLocal = data;
+    updateCounter();
+    updateMoodUI();
+    updateWordUI();
+    renderPostits();
+    renderAllLists();
+    updateJournalUI();
+    renderMapPlaces();
+    updateAlarmUI();
+    updateMarcelUI();
+  }
+});
+
+socket.on("presence", (data) => {
+  updatePresenceUI(data.online || [], data.count || 0);
+});
+
+socket.on("heartbeat_ping", (data) => {
+  // Flash le coeur quand on reçoit un ping
+  if (data?.from && data.from !== myPseudo) {
+    heartbeatIcon.style.transform = "scale(1.4)";
+    setTimeout(() => { heartbeatIcon.style.transform = ""; }, 300);
+  }
+});
+
+socket.on("miss_you", (data) => {
+  if (data?.from) {
+    showMissOverlay(data.from);
+  }
 });
 
 /* ── Bindind canvas events ─────────────────────────────── */
