@@ -109,3 +109,7 @@ MAINTENANCE_CODE=78913
 MAINTENANCE_MESSAGE="Maintenance en cours"
 ```
 En maintenance, utiliser pseudo `admin` + code `78913`.
+
+---
+
+> Projet maintenu avec ❤️ par Henergyque
