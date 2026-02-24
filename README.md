@@ -113,3 +113,5 @@ En maintenance, utiliser pseudo `admin` + code `78913`.
 ---
 
 > Projet maintenu avec ❤️ par Henergyque
+> 
+<!-- v2 -->
